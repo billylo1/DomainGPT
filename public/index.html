@@ -51,6 +51,40 @@
             position: relative;
         }
     </style>
+    <script>
+
+      let res = {};   // response from the server
+
+      function appendToConversation(text) {
+        var conversation = document.getElementById("conversation");
+        conversation.value = conversation.value + text;
+      }
+
+      function submitPrompt() {
+        console.log('submitPrompt');
+        var prompt = document.getElementById("prompt").value;
+        res.prompt = prompt;
+        console.log(res);
+
+          let httpResponse = fetch('/askdomaingpt', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(res)
+          }).then(response => response.json())
+            .then(data => {
+              console.log('Success:', data);
+              appendToConversation(data.text);
+            })
+            .catch((error) => {
+              console.error('Error:', error);
+            }
+            );
+
+      }
+
+    </script>
   </head>
   <body>
     <div id="nonFooter">
@@ -58,11 +92,9 @@
       </textarea>
     </div>
     <div id="footer">
-      <form action="/askdomaingpt">
-        <textarea id="prompt" name="prompt" rows="2" placeholder="What does your startup do?"></textarea>
-        <br>
-        <input type="submit" value="Submit">
-      </form>
+      <textarea id="prompt" name="prompt" rows="2" placeholder="What does your startup do?">sell socks</textarea>
+      <br>
+      <input type="submit" value="Submit" onclick="submitPrompt()">
 
     </div>
 
