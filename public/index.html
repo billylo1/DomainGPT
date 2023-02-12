@@ -133,7 +133,9 @@
         if (res.initial) {
           res = responseJson;
           res.initial = false;
-          document.getElementById("prompt").value = '';
+          if (prompt == document.getElementById("prompt").value)
+            document.getElementById("prompt").value = '';
+
           document.getElementById("prompt").placeholder = "Refine this list? (e.g. make them fun)";
         }
       } catch (error) {
