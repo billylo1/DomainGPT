@@ -1,16 +1,9 @@
-/*
-- add spinner
--
-
-*/
-
 import { ChatGPTAPI } from 'chatgpt'
 import whois from 'whois-json';
 import functions from "firebase-functions";
 
 let apiClient;
-
-let admin, db;
+process.env.TZ = 'America/Toronto'
 
 const numOptions = 5;
 
@@ -48,12 +41,14 @@ export const askdomaingpt = functions.runWith({timeoutSeconds: 240}).
 
 async function initialize(startupPrompt) {
 
-    console.log('Initializing...  Sending prompt: ' + startupPrompt);
+    // console.log('Initializing...  Sending prompt: ' + startupPrompt);
     let res = await sendMessageWithRetry(`Suggest ${numOptions*2} domain names for a company that ${startupPrompt}`)
     res = await checkDomainAvailability(res);
     return Promise.resolve(res);
 
 }
+
+// retry is a must-have. API is unstable.
 
 async function sendMessageWithRetry(...args) {
 
@@ -64,7 +59,6 @@ async function sendMessageWithRetry(...args) {
     while (count < 3 && !done) {
         try {
             res = await apiClient.sendMessage(...args)
-            // console.log(res);
             done = true;
         } catch (e) {
             console.error(e.message);
@@ -74,6 +68,7 @@ async function sendMessageWithRetry(...args) {
     }
 
     if (done) {
+        console.log(`${Date().toString()}\n=> ${args[0]}\n   ${res.text}`);
         return Promise.resolve(res);
     } else {
         return Promise.reject(res);
@@ -82,8 +77,7 @@ async function sendMessageWithRetry(...args) {
 
 async function followUp(res, followUpPrompt) {
 
-    console.log('Sending follow up prompt: ' + followUpPrompt);
-    // console.log(res);
+    // console.log('Sending follow up prompt: ' + followUpPrompt);
     res = await sendMessageWithRetry(followUpPrompt, {
         conversationId: res.conversationId,
         parentMessageId: res.id
@@ -106,7 +100,7 @@ async function checkDomainAvailability(res) {
             if (splitText.length >= 2) {
                 const domainName = splitText[1].replace(/,/g, '');
                 try {
-                    const domainInfo = await whois(domainName);
+                    const domainInfo = await whois(domainName, { follow: 3, timeout: 3000 } );
                     if (!domainInfo.hasOwnProperty('domainName')) {
                         availableDomains.push(domainName);
                         if (availableDomains.length >= numOptions) {
@@ -114,7 +108,7 @@ async function checkDomainAvailability(res) {
                             break;
                         }
                     } else {
-                        console.log(domainName + ' is not available');
+                        // console.log(domainName + ' is not available');
                     }
                 } catch (e) {
                     console.log('Error: ' + domainName);
@@ -127,7 +121,7 @@ async function checkDomainAvailability(res) {
         }
 
         if (!done) {
-            console.log('Requesting more suggestions and checking availability...')
+            // console.log('Requesting more suggestions and checking availability...')
 
             res = await sendMessageWithRetry(`Ten more suggestions please`, {
                 conversationId: res.conversationId,
@@ -136,7 +130,7 @@ async function checkDomainAvailability(res) {
         }
     } while (!done)
 
-    console.log(availableDomains);
+    // console.log(availableDomains);
     res.availableDomains = availableDomains;
     return Promise.resolve(res);
 

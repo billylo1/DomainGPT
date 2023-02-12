@@ -95,6 +95,7 @@
       document.getElementById("submit").disabled = true;
       document.getElementById("submit").value = 'Generating ideas & checking availability...';
       document.getElementById("spinner").hidden = false;
+      document.getElementById("reminder").hidden = false;
 
       // console.log(document.getElementById("submit"));
       var prompt = document.getElementById("prompt").value;
@@ -118,7 +119,7 @@
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(res),
-          signal: AbortSignal.timeout(245000)
+          signal: AbortSignal.timeout(240000)
         })
         
         let responseJson = await httpResponse.json();
@@ -142,6 +143,8 @@
         document.getElementById("submit").disabled = false;
         document.getElementById("submit").value = 'Submit';
         document.getElementById("spinner").hidden = true;
+        document.getElementById("reminder").hidden = true;
+
       }
     }
 
@@ -156,12 +159,12 @@
   </div>
   <div id="footer">
     <form onsubmit="submitPrompt(); return false;">
-      <input id="prompt" name="prompt" placeholder="What does your startup do?"></input>
+      <input id="prompt" name="prompt" autocomplete="new-password" placeholder="What does your startup do?"></input>
       <br>
       <input type="submit" value="Submit" id="submit"></input>
     </form>
     <br>
-    <small>Please be patient with chatGPT. It can be very busy at times.</small>
+    <div id="reminder" hidden><small>Please be patient with chatGPT. It can take minutes during peak hours.</small></div>
   </div>
 
 
