@@ -14,7 +14,8 @@ function initializeGPT() {
     }
 }
 
-export const askdomaingpt = functions.runWith({timeoutSeconds: 240}).
+export const askdomaingpt = functions.runWith({
+    timeoutSeconds: 240, memory: "2GB"}).
     https.onRequest(async (request, response) => {
 
     try {
