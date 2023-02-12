@@ -1,3 +1,9 @@
+/*
+- add spinner
+-
+
+*/
+
 import { ChatGPTAPI } from 'chatgpt'
 import whois from 'whois-json';
 import functions from "firebase-functions";
@@ -20,21 +26,15 @@ export const askdomaingpt = functions.https.onRequest(async (request, response) 
     try {
         let prompt, initial;
         initializeGPT();
-        if (request.method == 'GET') {
-            prompt = request.query.prompt;
-            console.log('askDomainGPT called with prompt: ' + prompt);
-            initial = request.query.initial;
-        } else if (request.method == 'POST') {
-            prompt = request.body.prompt;
-            console.log('askDomainGPT called with prompt: ' + prompt);
-            initial = request.body.initial;
-        }
+        prompt = request.body.prompt;
+        console.log('askDomainGPT called with prompt: ' + prompt);
+        initial = request.body.initial;
         
-        let res;
+        let res = request.body;
         if (initial == undefined || initial == true) {
             res = await initialize(prompt);
         } else {
-            res = await followUp(prompt);
+            res = await followUp(res, prompt);
         }
         console.log('Response: ' + res.text);
         response.send(res);
@@ -49,7 +49,7 @@ async function initialize(startupPrompt) {
 
     console.log('Initializing...  Sending prompt: ' + startupPrompt);
     let res = await sendMessageWithRetry(`Suggest ${numOptions} domain names for a company that ${startupPrompt}`)
-    await checkDomainAvailability(res);
+    res = await checkDomainAvailability(res);
     return Promise.resolve(res);
 
 }
@@ -63,6 +63,7 @@ async function sendMessageWithRetry(...args) {
     while (count < 3 && !done) {
         try {
             res = await apiClient.sendMessage(...args)
+            console.log(res);
             done = true;
         } catch (e) {
             console.error(e.message);
@@ -80,12 +81,13 @@ async function sendMessageWithRetry(...args) {
 
 async function followUp(res, followUpPrompt) {
 
+    console.log('Sending follow up prompt: ' + followUpPrompt);
     res = await sendMessageWithRetry(followUpPrompt, {
         conversationId: res.conversationId,
         parentMessageId: res.id
     })
 
-    await checkDomainAvailability(res);
+    res = await checkDomainAvailability(res);
     return Promise.resolve(res);
 }
 
@@ -95,9 +97,10 @@ async function checkDomainAvailability(res) {
     let done = false;
 
     do {
+        // console.log(res.text);
         let domains = res.text.split('\n');
         for (let domain of domains) {
-            const domainName = domain.split(' ')[1].trim();
+            const domainName = domain.split(' ')[1].replace(/,/g, '');
             console.log(domainName);
             try {
                 const domainInfo = await whois(domainName);

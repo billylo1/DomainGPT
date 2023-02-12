@@ -1,104 +1,148 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
-      integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
 
-    <title>DomainGPT - Talk to chatGPT to discover available domain names for your startup</title>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
 
-    <style media="screen">
-        html,body {
-            height: 100%;
-            margin: 4px;
-        }
+  <title>DomainGPT - Talk to chatGPT to discover available domain names for your startup</title>
 
-        #nonFooter {
-            min-height: 100%;
-            position:relative;
-            /* Firefox */
-            min-height: -moz-calc(100% - 150px);
-            /* WebKit */
-            min-height: -webkit-calc(100% - 150px);
-            /* Opera */
-            min-height: -o-calc(100% - 150px);
-            /* Standard */
-            min-height: calc(100% - 150px);
-        }
+  <style media="screen">
+    html,
+    body {
+      height: 100%;
+      margin: 4px;
+    }
 
-        #conversation {
-            width: 100%;
-            height: 100%;
-            resize: none;
-            border: none;
-            background-color: #f5f5f5;
-            padding: 10px;
-        }
+    #nonFooter {
+      min-height: 100%;
+      position: relative;
+      /* Firefox */
+      min-height: -moz-calc(100% - 150px);
+      /* WebKit */
+      min-height: -webkit-calc(100% - 150px);
+      /* Opera */
+      min-height: -o-calc(100% - 150px);
+      /* Standard */
+      min-height: calc(100% - 150px);
+    }
 
-        #prompt {
-            width: 100%;
-            resize: none;
-            margin-right: 15px;
-            padding: 4px;
-        }
+    #conversation {
+      width: 100%;
+      height: 100%;
+      resize: none;
+      border: none;
+      background-color: #f5f5f5;
+      padding: 10px;
+    }
 
-        #footer {
-            height:150px;
-            margin: 0 auto;
-            clear: both;
-            width:100%;
-            position: relative;
-        }
-    </style>
-    <script>
+    .server {
+      color: #000000;
+      background-color: #f5f5f5;
+      font-family: 'Courier New', Courier, monospace;
+      padding: 15px;
+      margin: 3px;
+      border-radius: 10px;
+    }
 
-      let res = {};   // response from the server
+    .client {
+      color: #000000;
+      background-color: #f5f5f5;
+      padding: 5px;
+      margin: 3px;
+      border-radius: 10px;
+    }
 
-      function appendToConversation(text) {
-        var conversation = document.getElementById("conversation");
-        conversation.value = conversation.value + text;
-      }
+    #prompt {
+      width: 100%;
+      resize: none;
+      margin-right: 15px;
+      padding: 4px;
+    }
 
-      function submitPrompt() {
-        console.log('submitPrompt');
-        var prompt = document.getElementById("prompt").value;
-        res.prompt = prompt;
-        console.log(res);
+    #footer {
+      height: 150px;
+      margin: 0 auto;
+      clear: both;
+      width: 100%;
+      position: relative;
 
-          let httpResponse = fetch('/askdomaingpt', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(res)
-          }).then(response => response.json())
-            .then(data => {
-              console.log('Success:', data);
-              appendToConversation(data.text);
-            })
-            .catch((error) => {
-              console.error('Error:', error);
-            }
-            );
 
-      }
+    }
 
-    </script>
-  </head>
-  <body>
-    <div id="nonFooter">
-      <textarea readonly id="conversation">DomainGPT - Talk to chatGPT to discover available domain names for your startup.
-      </textarea>
+  </style>
+  <script>
+
+    let res = { initial: true};   // response from the server
+
+    function appendToConversation(text, className) {
+      var conversation = document.getElementById("conversation");
+      let newElement = document.createElement("div");
+      newElement.innerHTML = text;
+      newElement.className = className;
+      conversation.appendChild(newElement);
+    }
+
+    function submitPrompt() {
+      console.log('submitPrompt');
+      document.getElementById("submit").disabled = true;
+      document.getElementById("spinner").hidden = false;
+
+      console.log(document.getElementById("submit"));
+      var prompt = document.getElementById("prompt").value;
+      appendToConversation(prompt, "client");
+      res.prompt = prompt;
+      console.log(res);
+
+      let httpResponse = fetch('/askdomaingpt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(res)
+      }).then(response => response.json())
+        .then(data => {
+          console.log('Success:', data);
+          let output = '';
+          for (let i = 0; i < data.availableDomains.length; i++) {
+            console.log(data.availableDomains[i]);
+            output += data.availableDomains[i] + '<br>';
+          }
+          appendToConversation(output, "server");
+          if (res.initial) {
+            res.initial = false;
+            document.getElementById("prompt").placeholder = "Refine this list? (e.g. make them funny)";
+          }
+        })
+        .catch((error) => {
+          console.error('Error:', error);
+        }).finally(() => {
+          document.getElementById("submit").disabled = false;
+          document.getElementById("spinner").hidden = true;
+        });
+
+    }
+
+  </script>
+</head>
+
+<body>
+  <div id="nonFooter">
+    <h4>DomainGPT - Talk to chatGPT to discover relevant available domains</h4>
+    <div class="spinner-grow spinner-grow-sm text-primary" id="spinner" hidden></div>
+    <div id="conversation">
     </div>
-    <div id="footer">
-      <textarea id="prompt" name="prompt" rows="2" placeholder="What does your startup do?">sell socks</textarea>
+  </div>
+  <div id="footer">
+      <input id="prompt" name="prompt" placeholder="What does your startup do?" value="sell socks"></input>
       <br>
-      <input type="submit" value="Submit" onclick="submitPrompt()">
-
-    </div>
-
+      <input type="button" value="Send" id="submit" onclick="submitPrompt()"></input>
+  </div>
 
 
-  </body>
+
+</body>
+
 </html>
