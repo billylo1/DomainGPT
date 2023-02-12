@@ -21,7 +21,8 @@ function initializeGPT() {
     }
 }
 
-export const askdomaingpt = functions.https.onRequest(async (request, response) => {
+export const askdomaingpt = functions.runWith({timeoutSeconds: 240}).
+    https.onRequest(async (request, response) => {
 
     try {
         let prompt, initial;
@@ -36,7 +37,7 @@ export const askdomaingpt = functions.https.onRequest(async (request, response) 
         } else {
             res = await followUp(res, prompt);
         }
-        console.log('Response: ' + res.text);
+        // console.log('Response: ' + res.text);
         response.send(res);
 
     } catch (e) {
@@ -48,7 +49,7 @@ export const askdomaingpt = functions.https.onRequest(async (request, response) 
 async function initialize(startupPrompt) {
 
     console.log('Initializing...  Sending prompt: ' + startupPrompt);
-    let res = await sendMessageWithRetry(`Suggest ${numOptions} domain names for a company that ${startupPrompt}`)
+    let res = await sendMessageWithRetry(`Suggest ${numOptions*2} domain names for a company that ${startupPrompt}`)
     res = await checkDomainAvailability(res);
     return Promise.resolve(res);
 
@@ -63,7 +64,7 @@ async function sendMessageWithRetry(...args) {
     while (count < 3 && !done) {
         try {
             res = await apiClient.sendMessage(...args)
-            console.log(res);
+            // console.log(res);
             done = true;
         } catch (e) {
             console.error(e.message);
@@ -82,6 +83,7 @@ async function sendMessageWithRetry(...args) {
 async function followUp(res, followUpPrompt) {
 
     console.log('Sending follow up prompt: ' + followUpPrompt);
+    // console.log(res);
     res = await sendMessageWithRetry(followUpPrompt, {
         conversationId: res.conversationId,
         parentMessageId: res.id
@@ -100,28 +102,34 @@ async function checkDomainAvailability(res) {
         // console.log(res.text);
         let domains = res.text.split('\n');
         for (let domain of domains) {
-            const domainName = domain.split(' ')[1].replace(/,/g, '');
-            console.log(domainName);
-            try {
-                const domainInfo = await whois(domainName);
-                console.log(domainName);
-                if (!domainInfo.hasOwnProperty('domainName')) {
-                    availableDomains.push(domainName);
-                    if (availableDomains.length >= numOptions) {
-                        done = true;
-                        break;
+            const splitText = domain.split(' ');
+            if (splitText.length >= 2) {
+                const domainName = splitText[1].replace(/,/g, '');
+                try {
+                    const domainInfo = await whois(domainName);
+                    if (!domainInfo.hasOwnProperty('domainName')) {
+                        availableDomains.push(domainName);
+                        if (availableDomains.length >= numOptions) {
+                            done = true;
+                            break;
+                        }
+                    } else {
+                        console.log(domainName + ' is not available');
                     }
+                } catch (e) {
+                    console.log('Error: ' + domainName);
+                    console.log(e);
                 }
-            } catch (e) {
-                console.log('Error: ' + domainName);
-                console.log(e);
+            } else {
+                console.warn('Error: ' + domain);
+                done = true;
             }
         }
 
         if (!done) {
             console.log('Requesting more suggestions and checking availability...')
 
-            res = await sendMessageWithRetry(`${numOptions} more suggestions please`, {
+            res = await sendMessageWithRetry(`Ten more suggestions please`, {
                 conversationId: res.conversationId,
                 parentMessageId: res.id
             })

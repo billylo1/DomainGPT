@@ -56,26 +56,30 @@
     }
 
     #prompt {
-      width: 100%;
-      resize: none;
+      width: 95%;
+      margin-right: 15px;
+      margin-bottom: 5px;
+      padding: 4px;
+    }
+
+    #spinner {
       margin-right: 15px;
       padding: 4px;
     }
 
     #footer {
-      height: 150px;
-      margin: 0 auto;
+      height: 100px;
+      margin-top: 10px;
+      margin-right: 5px;
       clear: both;
       width: 100%;
       position: relative;
-
-
     }
 
   </style>
   <script>
 
-    let res = { initial: true};   // response from the server
+    let res = { initial: true};   // response from the server, state info for the next request
 
     function appendToConversation(text, className) {
       var conversation = document.getElementById("conversation");
@@ -85,44 +89,60 @@
       conversation.appendChild(newElement);
     }
 
-    function submitPrompt() {
+    async function submitPrompt() {
+
       console.log('submitPrompt');
       document.getElementById("submit").disabled = true;
+      document.getElementById("submit").value = 'Generating ideas & checking availability...';
       document.getElementById("spinner").hidden = false;
 
-      console.log(document.getElementById("submit"));
+      // console.log(document.getElementById("submit"));
       var prompt = document.getElementById("prompt").value;
-      appendToConversation(prompt, "client");
       res.prompt = prompt;
-      console.log(res);
+      // console.log(res);
 
-      let httpResponse = fetch('/askdomaingpt', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(res)
-      }).then(response => response.json())
-        .then(data => {
-          console.log('Success:', data);
-          let output = '';
-          for (let i = 0; i < data.availableDomains.length; i++) {
-            console.log(data.availableDomains[i]);
-            output += data.availableDomains[i] + '<br>';
-          }
-          appendToConversation(output, "server");
-          if (res.initial) {
-            res.initial = false;
-            document.getElementById("prompt").placeholder = "Refine this list? (e.g. make them funny)";
-          }
+      AbortSignal.timeout ??= function timeout(ms) {
+        const ctrl = new AbortController()
+        setTimeout(() => ctrl.close(), ms)
+        return ctrl.signal
+      }
+
+      try {
+
+        document.getElementById("conversation").hidden = false;
+        appendToConversation(prompt, "client");
+
+        let httpResponse = await fetch('/askdomaingpt', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(res),
+          signal: AbortSignal.timeout(245000)
         })
-        .catch((error) => {
-          console.error('Error:', error);
-        }).finally(() => {
-          document.getElementById("submit").disabled = false;
-          document.getElementById("spinner").hidden = true;
-        });
-
+        
+        let responseJson = await httpResponse.json();
+        console.log('Success:', responseJson);
+        let output = '';
+        for (let i = 0; i < responseJson.availableDomains.length; i++) {
+          console.log(responseJson.availableDomains[i]);
+          output += responseJson.availableDomains[i] + '<br>';
+        }
+        appendToConversation(output, "server");
+        if (res.initial) {
+          res = responseJson;
+          res.initial = false;
+          document.getElementById("prompt").value = '';
+          document.getElementById("prompt").placeholder = "Refine this list? (e.g. make them fun)";
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        appendToConversation('chatGPT is not responding. Please retry.', "server");
+      } finally {
+        document.getElementById("submit").disabled = false;
+        document.getElementById("submit").value = 'Submit';
+        document.getElementById("spinner").hidden = true;
+      }
     }
 
   </script>
@@ -130,15 +150,18 @@
 
 <body>
   <div id="nonFooter">
-    <h4>DomainGPT - Talk to chatGPT to discover relevant available domains</h4>
+    <h4>DomainGPT - Ask chatGPT to discover available domain names for your startup</h4>
+    <div id="conversation" hidden></div>
     <div class="spinner-grow spinner-grow-sm text-primary" id="spinner" hidden></div>
-    <div id="conversation">
-    </div>
   </div>
   <div id="footer">
-      <input id="prompt" name="prompt" placeholder="What does your startup do?" value="sell socks"></input>
+    <form onsubmit="submitPrompt(); return false;">
+      <input id="prompt" name="prompt" placeholder="What does your startup do?"></input>
       <br>
-      <input type="button" value="Send" id="submit" onclick="submitPrompt()"></input>
+      <input type="submit" value="Submit" id="submit"></input>
+    </form>
+    <br>
+    <small>Please be patient with chatGPT. It can be very busy at times.</small>
   </div>
 
 
