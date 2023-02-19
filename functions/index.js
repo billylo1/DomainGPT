@@ -22,6 +22,9 @@ export const askdomaingpt = functions.runWith({
         let prompt, initial;
         initializeGPT();
         prompt = request.body.prompt;
+        if (prompt == undefined) {
+            return response.send('No prompt provided');
+        }
         console.log('askDomainGPT called with prompt: ' + prompt);
         initial = request.body.initial;
         
