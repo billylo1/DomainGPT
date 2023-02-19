@@ -1,6 +1,7 @@
 import { ChatGPTAPI } from 'chatgpt'
 import whois from 'whois-json';
 import functions from "firebase-functions";
+import fetch from 'node-fetch';
 
 let apiClient;
 process.env.TZ = 'America/Toronto'
