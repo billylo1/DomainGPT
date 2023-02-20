@@ -1,6 +1,7 @@
 # DomainGPT - Ask ChatGPT to suggest domain names for your startup and show available options
 
 Hosted version: https://domaingpt.billylo.ca
+Demo video: https://youtu.be/F2TyJfr97bA
 
 To truly understand a new tech, hands-on experimentations are essential. This enables us to maximize its strength and side-step constraints.
 
