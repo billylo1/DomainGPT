@@ -1,17 +1,42 @@
-import { ChatGPTAPI } from 'chatgpt'
 import whois from 'whois-json';
 import functions from "firebase-functions";
 
-let apiClient;
 process.env.TZ = 'America/Toronto'
-
+import OpenAI from "openai";
 const numOptions = 5;
+let chatHistory = [];
 
-function initializeGPT() {
+async function sendMessage(user_input) {
 
-    if (apiClient == undefined) {
-        apiClient = new ChatGPTAPI({ apiKey: process.env.API_KEY })
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, });
+
+    const messageList = chatHistory.map(([input_text, completion_text]) => ({
+        role: "user" === input_text ? "ChatGPT" : "user",
+        content: input_text
+    }));
+    messageList.push({ role: "user", content: user_input });
+
+    try {
+        const GPTOutput = await openai.chat.completions.create({
+            model: "gpt-4-turbo",
+            messages: messageList,
+        });
+
+        const output_text = GPTOutput.choices[0].message.content;
+        console.log(output_text);
+
+        chatHistory.push([user_input, output_text]);
+        return Promise.resolve({text: output_text});
+
+    } catch (err) {
+        if (err.response) {
+            console.log(err.response.status);
+            console.log(err.response.data);
+        } else {
+            console.log(err.message);
+        }
     }
+
 }
 
 export const askdomaingpt = functions.runWith({
@@ -20,7 +45,7 @@ export const askdomaingpt = functions.runWith({
 
     try {
         let prompt, initial;
-        initializeGPT();
+
         prompt = request.body.prompt;
         if (prompt == undefined) {
             return response.send('No prompt provided');
@@ -32,7 +57,7 @@ export const askdomaingpt = functions.runWith({
         if (initial == undefined || initial == true) {
             res = await initialize(prompt);
         } else {
-            res = await followUp(res, prompt);
+            res = await sendMessageAndCheckDomain(prompt);
         }
         // console.log('Response: ' + res.text);
         response.send(res);
@@ -46,50 +71,25 @@ export const askdomaingpt = functions.runWith({
 async function initialize(startupPrompt) {
 
     // console.log('Initializing...  Sending prompt: ' + startupPrompt);
-    let res = await sendMessageWithRetry(`Suggest ${numOptions*2} domain names for a company that ${startupPrompt}`)
-    res = await checkDomainAvailability(res);
+    let res = await sendMessageAndCheckDomain(`Suggest ${numOptions*2} domain names for a company that ${startupPrompt}`)
     return Promise.resolve(res);
 
 }
 
 // retry is a must-have. API is unstable.
 
-async function sendMessageWithRetry(...args) {
+async function sendMessageAndCheckDomain(message) {
 
-    let count = 0;
-    let done = false;
-    let res;
-
-    while (count < 3 && !done) {
-        try {
-            res = await apiClient.sendMessage(...args)
-            done = true;
-        } catch (e) {
-            console.error(e.message);
-            count++;
-            console.warn(`Retrying... ${count}`)
-        }
-    }
-
-    if (done) {
-        console.log(`${Date().toString()}\n=> ${args[0]}\n   ${res.text}`);
+    try {
+        let res = await sendMessage(message, chatHistory)
+        res = await checkDomainAvailability(res);
         return Promise.resolve(res);
-    } else {
-        return Promise.reject(res);
+    } catch (e) {
+        console.log(e);
+        return Promise.reject(e);
     }
 }
 
-async function followUp(res, followUpPrompt) {
-
-    // console.log('Sending follow up prompt: ' + followUpPrompt);
-    res = await sendMessageWithRetry(followUpPrompt, {
-        conversationId: res.conversationId,
-        parentMessageId: res.id
-    })
-
-    res = await checkDomainAvailability(res);
-    return Promise.resolve(res);
-}
 
 async function checkDomainAvailability(res) {
 
@@ -106,13 +106,15 @@ async function checkDomainAvailability(res) {
                 try {
                     const domainInfo = await whois(domainName, { follow: 3, timeout: 3000 } );
                     if (!domainInfo.hasOwnProperty('domainName')) {
+                        console.log(domainName + ' is available');
+
                         availableDomains.push(domainName);
                         if (availableDomains.length >= numOptions) {
                             done = true;
                             break;
                         }
                     } else {
-                        // console.log(domainName + ' is not available');
+                        console.log(domainName + ' is not available');
                     }
                 } catch (e) {
                     console.log('Error: ' + domainName);
@@ -127,7 +129,7 @@ async function checkDomainAvailability(res) {
         if (!done) {
             // console.log('Requesting more suggestions and checking availability...')
 
-            res = await sendMessageWithRetry(`Ten more suggestions please`, {
+            res = await sendMessage(`Ten more suggestions please`, {
                 conversationId: res.conversationId,
                 parentMessageId: res.id
             })
