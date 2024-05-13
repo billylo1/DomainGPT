@@ -18,7 +18,7 @@ async function sendMessage(user_input) {
 
     try {
         const GPTOutput = await openai.chat.completions.create({
-            model: "gpt-4-turbo",
+            model: "gpt-4o-2024-05-13",
             messages: messageList,
         });
 
@@ -99,6 +99,8 @@ async function checkDomainAvailability(res) {
     do {
         // console.log(res.text);
         let domains = res.text.split('\n');
+        domains.shift();
+        domains.shift();
         for (let domain of domains) {
             const splitText = domain.split(' ');
             if (splitText.length >= 2) {
