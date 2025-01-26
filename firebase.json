@@ -22,7 +22,12 @@
       {
         "source": "/askdomaingpt",
         "function": "askdomaingpt"
+      },
+      {
+        "source": "/checkDomain",
+        "function": "checkDomain"
       }
+
     ]
   },
   "emulators": {
